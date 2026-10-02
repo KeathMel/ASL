@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#1f3a5f">
+<title>Sign Vocab</title>
+<style>
+:root{box-sizing:border-box;--bg:#f3f6fb;--card:#fff;--ink:#14213a;--mut:#6b7a90;--acc:#ff6b4a;--ok:#1f9d63;--bad:#d64545;--line:#dbe3ee;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a2b;--card:#182740;--ink:#eef3fb;--mut:#92a3bd;--line:#26385a}}
+:root[data-theme="dark"]{--bg:#0f1a2b;--card:#182740;--ink:#eef3fb;--mut:#92a3bd;--line:#26385a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif;max-width:560px;margin:0 auto;padding:12px 14px 40px}
+h1{font-size:22px;margin:6px 0 12px}
+nav{display:flex;gap:6px;margin-bottom:14px}
+nav button{flex:1;padding:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-weight:700}
+nav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+input{width:100%;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;margin-bottom:8px}
+.btn{padding:12px 16px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-weight:700;width:100%}
+.btn.alt{background:var(--line);color:var(--ink)}
+.row{display:flex;gap:8px}
+.vid{aspect-ratio:9/16;max-height:58vh;margin:0 auto 10px;border-radius:12px;overflow:hidden;background:#000}
+.play{width:100%;height:100%;border:0;background:#14213a;color:#fff;font:inherit;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.play span{font-size:56px;color:var(--acc)}
+.vid iframe{width:100%;height:100%;border:0}
+.item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item a,.link{color:var(--acc);font-size:14px}
+.x{background:none;border:0;color:var(--bad);font-size:20px}
+.mut{color:var(--mut);font-size:14px}
+.big{font-size:28px;font-weight:800;text-align:center;margin:6px 0}
+.msg{text-align:center;font-weight:700;min-height:24px;margin:4px 0 8px}
+</style></head>
+<body>
+<h1>Sign Vocab</h1>
+<nav id="nav"><button data-t="learn" class="on">Add</button><button data-t="watch">Watch</button><button data-t="quiz">Quiz</button></nav>
+<main id="app"></main>
+<script>
+let signs=[],tab="learn",cur=null,idx=0,score={r:0,t:0},answered=false;
+const K="signvocab:v1";
+try{signs=JSON.parse(localStorage.getItem(K)||"[]")}catch(e){signs=[]}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(signs))}catch(e){}};
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function ytId(u){const m=u.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([\w-]{11})/);return m?m[1]:null}
+function player(id){return `<div class="vid" data-id="${id}"><button class="play" aria-label="Play video"><span>▶</span>Tap to play</button></div><div class="mut" style="text-align:center;margin-bottom:8px">Still not playing? <a class="link" href="https://www.youtube.com/shorts/${id}" target="_blank" rel="noopener">Open on YouTube</a></div>`}
+document.addEventListener("click",e=>{const b=e.target.closest(".play");if(!b)return;const v=b.parentElement,id=v.dataset.id;v.innerHTML=`<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&loop=1&playlist=${id}&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`});
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
+  const el=document.getElementById("app");
+  if(tab==="learn"){
+    el.innerHTML=`<div class="card"><input id="w" placeholder="Word (e.g. thank you)" autocapitalize="none"><input id="u" placeholder="Paste YouTube Shorts link" inputmode="url"><div id="err" class="mut" style="color:var(--bad);min-height:20px"></div><button class="btn" onclick="add()">Save sign</button></div>
+    <div class="card"><b>${signs.length} sign${signs.length===1?"":"s"} learned</b>${signs.length?"":'<p class="mut">Nothing here yet. Add your first sign above.</p>'}${signs.map((s,i)=>`<div class="item"><div><b>${esc(s.w)}</b><br><a href="https://www.youtube.com/shorts/${s.id}" target="_blank" rel="noopener">view</a></div><button class="x" onclick="del(${i})" aria-label="Delete ${esc(s.w)}">×</button></div>`).join("")}</div>`;
+  } else if(!signs.length){
+    el.innerHTML=`<div class="card mut">Add at least one sign first.</div>`;
+  } else if(tab==="watch"){
+    const s=signs[idx%signs.length];
+    el.innerHTML=`${player(s.id)}<div class="big">${esc(s.w)}</div><div class="row"><button class="btn alt" onclick="idx=(idx-1+signs.length)%signs.length;render()">Back</button><button class="btn" onclick="idx=(idx+1)%signs.length;render()">Next</button></div>`;
+  } else {
+    if(!cur)pick();
+    el.innerHTML=`${player(cur.id)}<div class="mut" style="text-align:center">Score ${score.r}/${score.t}</div>
+    <input id="a" placeholder="Type the word" autocapitalize="none" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
+    <div id="m" class="msg"></div><div class="row"><button class="btn alt" onclick="pick();render()">Skip</button><button class="btn" id="go" onclick="check()">Check</button></div>`;
+  }
+}
+function add(){
+  const w=document.getElementById("w").value.trim(),id=ytId(document.getElementById("u").value.trim()),er=document.getElementById("err");
+  if(!w){er.textContent="Enter the word first.";return}
+  if(!id){er.textContent="That link isn't a YouTube video. Paste a Shorts link.";return}
+  signs.unshift({w,id});save();render();
+}
+function del(i){signs.splice(i,1);save();render()}
+function pick(){let n;do{n=signs[Math.floor(Math.random()*signs.length)]}while(signs.length>1&&cur&&n===cur);cur=n;answered=false}
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,"");
+function check(){
+  const m=document.getElementById("m");
+  if(answered){pick();render();return}
+  const a=document.getElementById("a").value;if(!a.trim())return;
+  score.t++;answered=true;
+  if(norm(a)===norm(cur.w)){score.r++;m.style.color="var(--ok)";m.textContent="Correct!"}
+  else{m.style.color="var(--bad)";m.textContent="It was: "+cur.w}
+  document.getElementById("go").textContent="Next";
+}
+document.getElementById("nav").onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;cur=null;render()}};
+render();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body></html>
