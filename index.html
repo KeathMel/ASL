@@ -12,6 +12,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif;max-width:560px;margin:0 auto;padding:12px 14px 40px}
 h1{font-size:22px;margin:6px 0 12px}
+h2{font-size:17px;margin:0 0 10px}
 nav{display:flex;gap:6px;margin-bottom:14px}
 nav button{flex:1;padding:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-weight:700}
 nav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -19,9 +20,13 @@ nav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 input{width:100%;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;margin-bottom:8px}
 .btn{padding:12px 16px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-weight:700;width:100%}
 .btn.alt{background:var(--line);color:var(--ink)}
+.btn.good{background:var(--ok)}
+.btn.bad{background:var(--bad)}
+.btn:disabled{opacity:.45}
 .row{display:flex;gap:8px}
 .vid{aspect-ratio:9/16;max-height:58vh;margin:0 auto 10px;border-radius:12px;overflow:hidden;background:#000}
-.play{width:100%;height:100%;border:0;background:#14213a;color:#fff;font:inherit;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.play span{font-size:56px;color:var(--acc)}
+.play{width:100%;height:100%;border:0;background:#14213a;color:#fff;font:inherit;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;text-align:center}.play span{font-size:56px;color:var(--acc)}
+.play small{font-weight:400;color:#c7d2e3;font-size:14px}
 .vid iframe{width:100%;height:100%;border:0}
 .item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
 .item:first-child{border-top:0}
@@ -29,37 +34,130 @@ input{width:100%;padding:12px;border:2px solid var(--line);border-radius:10px;ba
 .x{background:none;border:0;color:var(--bad);font-size:20px}
 .mut{color:var(--mut);font-size:14px}
 .big{font-size:28px;font-weight:800;text-align:center;margin:6px 0}
+.word{font-size:34px;font-weight:800;text-align:center;margin:4px 0 12px;line-height:1.15}
 .msg{text-align:center;font-weight:700;min-height:24px;margin:4px 0 8px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;margin-left:6px;vertical-align:2px}
+.tag.good{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.learn{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.opts{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;text-align:left;width:100%}
+.opt.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,var(--bg))}
+.opt:disabled{opacity:.45}
+.opt b{display:block}
+.opt .n{font-weight:800;color:var(--mut);white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chips button{flex:1;min-width:64px;padding:10px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-weight:700}
+.chips button.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,var(--bg))}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:2px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.textbtn{background:none;border:0;color:var(--mut);font:inherit;font-size:14px;text-decoration:underline;padding:4px}
+.sum{display:flex;gap:8px;margin:8px 0 14px}
+.sum div{flex:1;text-align:center;padding:12px 6px;border-radius:10px;background:var(--bg)}
+.sum b{display:block;font-size:28px}
 </style></head>
 <body>
 <h1>Sign Vocab</h1>
 <nav id="nav"><button data-t="learn" class="on">Add</button><button data-t="watch">Watch</button><button data-t="quiz">Quiz</button></nav>
 <main id="app"></main>
 <script>
-let signs=[],tab="learn",cur=null,idx=0,score={r:0,t:0},answered=false;
-const K="signvocab:v1";
+// Each sign: {w: word, id: YouTube id, st: "good" | "learn" | undefined (not quizzed yet), ok: times right, miss: times to relearn}
+let signs=[],tab="learn",idx=0;
+const K="signvocab:v1", QK="signvocab:quizprefs";
 try{signs=JSON.parse(localStorage.getItem(K)||"[]")}catch(e){signs=[]}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(signs))}catch(e){}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function ytId(u){const m=u.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([\w-]{11})/);return m?m[1]:null}
-function player(id){return `<div class="vid" data-id="${id}"><button class="play" aria-label="Play video"><span>▶</span>Tap to play</button></div><div class="mut" style="text-align:center;margin-bottom:8px">Still not playing? <a class="link" href="https://www.youtube.com/shorts/${id}" target="_blank" rel="noopener">Open on YouTube</a></div>`}
-document.addEventListener("click",e=>{const b=e.target.closest(".play");if(!b)return;const v=b.parentElement,id=v.dataset.id;v.innerHTML=`<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&loop=1&playlist=${id}&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`});
+function ytId(u){const m=u.match(/(?:shorts\/|youtu\.be\/|v=|embed\/|live\/)([\w-]{11})/);return m?m[1]:null}
+const embed=id=>`<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&loop=1&playlist=${id}&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+const ytLink=id=>`<div class="mut" style="text-align:center;margin-bottom:8px">Still not playing? <a class="link" href="https://www.youtube.com/shorts/${id}" target="_blank" rel="noopener">Open on YouTube</a></div>`;
+function player(id,label="Tap to play",sub=""){return `<div class="vid" data-id="${id}"><button class="play" aria-label="${label}"><span>▶</span>${label}${sub?`<small>${sub}</small>`:""}</button></div>`}
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".play");if(!b)return;
+  const v=b.parentElement;v.innerHTML=embed(v.dataset.id);
+  if(v.dataset.reveal){Q.revealed=true;renderJudge()}
+});
+const tag=s=>s.st==="good"?'<span class="tag good">✓ got it</span>':s.st==="learn"?'<span class="tag learn">relearn</span>':"";
+
+// ---------- Quiz ----------
+// Quiz settings are remembered between visits
+let prefs={which:"all",count:0};
+try{Object.assign(prefs,JSON.parse(localStorage.getItem(QK)||"{}"))}catch(e){}
+const savePrefs=()=>{try{localStorage.setItem(QK,JSON.stringify(prefs))}catch(e){}};
+let Q=null; // the running quiz: {list, i, revealed, good:[], learn:[]}
+const POOLS={
+  all:  {t:"All signs",          d:"Everything you've saved",                f:s=>true},
+  good: {t:"The ones I got right",d:"Keep them fresh",                         f:s=>s.st==="good"},
+  learn:{t:"The ones I need to relearn",d:"Signs you marked “need to relearn”", f:s=>s.st==="learn"},
+};
+const pool=k=>signs.filter(POOLS[k].f);
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function quizSettings(el){
+  if(!pool(prefs.which).length)prefs.which="all";
+  const n=pool(prefs.which).length;
+  const counts=[[0,"All"],[5,"5"],[10,"10"],[20,"20"]];
+  el.innerHTML=`<div class="card"><h2>Quiz me on…</h2>
+    <div class="opts">${Object.entries(POOLS).map(([k,p])=>{const c=pool(k).length;return `<button class="opt${prefs.which===k?" on":""}" data-which="${k}" ${c?"":"disabled"}><span><b>${p.t}</b><span class="mut">${p.d}</span></span><span class="n">${c}</span></button>`}).join("")}</div>
+    <h2>How many?</h2>
+    <div class="chips">${counts.map(([v,l])=>`<button data-count="${v}" class="${prefs.count===v?"on":""}">${l}</button>`).join("")}</div>
+    <p class="mut" style="margin:0 0 12px">You'll see a word. Sign it yourself, then tap the video to check, and mark how you did.</p>
+    <button class="btn" onclick="startQuiz()">Start quiz (${prefs.count&&prefs.count<n?prefs.count:n} sign${(prefs.count&&prefs.count<n?prefs.count:n)===1?"":"s"})</button></div>`;
+  el.querySelectorAll("[data-which]").forEach(b=>b.onclick=()=>{prefs.which=b.dataset.which;savePrefs();render()});
+  el.querySelectorAll("[data-count]").forEach(b=>b.onclick=()=>{prefs.count=+b.dataset.count;savePrefs();render()});
+}
+function startQuiz(list){
+  let l=list||shuffle(pool(prefs.which));
+  if(!list&&prefs.count)l=l.slice(0,prefs.count);
+  if(!l.length)return;
+  Q={list:l,i:0,revealed:false,good:[],learn:[]};render();
+}
+function quizCard(el){
+  if(Q.i>=Q.list.length)return quizDone(el);
+  const s=Q.list[Q.i];
+  el.innerHTML=`<div class="top"><span class="mut">Sign ${Q.i+1} of ${Q.list.length}</span><button class="textbtn" onclick="Q=null;render()">End quiz</button></div>
+    <div class="bar"><i style="width:${100*Q.i/Q.list.length}%"></i></div>
+    <div class="word">${esc(s.w)}</div>
+    ${player(s.id,"Tap to check","Sign it yourself first")}
+    <div id="judge"></div>`;
+  el.querySelector(".vid").dataset.reveal="1";
+  Q.revealed=false;renderJudge();
+}
+function renderJudge(){
+  const j=document.getElementById("judge");if(!j||!Q)return;
+  const s=Q.list[Q.i];
+  j.innerHTML=Q.revealed
+    ? `${ytLink(s.id)}<div class="row"><button class="btn bad" onclick="judge(false)">↻ Need to relearn</button><button class="btn good" onclick="judge(true)">✓ I did it right</button></div>`
+    : `<div class="row"><button class="btn alt" onclick="Q.revealed=true;renderJudge()">Can't play? Skip to marking</button></div>`;
+}
+function judge(ok){
+  const s=Q.list[Q.i];
+  s.st=ok?"good":"learn"; if(ok)s.ok=(s.ok||0)+1; else s.miss=(s.miss||0)+1;
+  (ok?Q.good:Q.learn).push(s);
+  save(); Q.i++; render(); window.scrollTo(0,0);
+}
+function quizDone(el){
+  el.innerHTML=`<div class="card"><h2>Quiz done</h2>
+    <div class="sum"><div><b style="color:var(--ok)">${Q.good.length}</b><span class="mut">did it right</span></div><div><b style="color:var(--bad)">${Q.learn.length}</b><span class="mut">to relearn</span></div></div>
+    ${Q.learn.length?`<p class="mut" style="margin:0 0 6px">To relearn: ${Q.learn.map(s=>`<b>${esc(s.w)}</b>`).join(", ")}</p>`:""}
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+      ${Q.learn.length?`<button class="btn" onclick="startQuiz(shuffle(Q.learn))">Quiz me on these ${Q.learn.length} again</button>`:""}
+      <button class="btn alt" onclick="Q=null;render()">Back to quiz settings</button>
+    </div></div>`;
+}
+
 function render(){
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
   const el=document.getElementById("app");
   if(tab==="learn"){
     el.innerHTML=`<div class="card"><input id="w" placeholder="Word (e.g. thank you)" autocapitalize="none"><input id="u" placeholder="Paste YouTube Shorts link" inputmode="url"><div id="err" class="mut" style="color:var(--bad);min-height:20px"></div><button class="btn" onclick="add()">Save sign</button></div>
-    <div class="card"><b>${signs.length} sign${signs.length===1?"":"s"} learned</b>${signs.length?"":'<p class="mut">Nothing here yet. Add your first sign above.</p>'}${signs.map((s,i)=>`<div class="item"><div><b>${esc(s.w)}</b><br><a href="https://www.youtube.com/shorts/${s.id}" target="_blank" rel="noopener">view</a></div><button class="x" onclick="del(${i})" aria-label="Delete ${esc(s.w)}">×</button></div>`).join("")}</div>`;
+    <div class="card"><b>${signs.length} sign${signs.length===1?"":"s"} learned</b>${signs.length?"":'<p class="mut">Nothing here yet. Add your first sign above.</p>'}${signs.map((s,i)=>`<div class="item"><div><b>${esc(s.w)}</b>${tag(s)}<br><a href="https://www.youtube.com/shorts/${s.id}" target="_blank" rel="noopener">view</a></div><button class="x" onclick="del(${i})" aria-label="Delete ${esc(s.w)}">×</button></div>`).join("")}</div>`;
   } else if(!signs.length){
     el.innerHTML=`<div class="card mut">Add at least one sign first.</div>`;
   } else if(tab==="watch"){
     const s=signs[idx%signs.length];
-    el.innerHTML=`${player(s.id)}<div class="big">${esc(s.w)}</div><div class="row"><button class="btn alt" onclick="idx=(idx-1+signs.length)%signs.length;render()">Back</button><button class="btn" onclick="idx=(idx+1)%signs.length;render()">Next</button></div>`;
+    el.innerHTML=`${player(s.id)}${ytLink(s.id)}<div class="big">${esc(s.w)}</div><div class="row"><button class="btn alt" onclick="idx=(idx-1+signs.length)%signs.length;render()">Back</button><button class="btn" onclick="idx=(idx+1)%signs.length;render()">Next</button></div>`;
   } else {
-    if(!cur)pick();
-    el.innerHTML=`${player(cur.id)}<div class="mut" style="text-align:center">Score ${score.r}/${score.t}</div>
-    <input id="a" placeholder="Type the word" autocapitalize="none" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
-    <div id="m" class="msg"></div><div class="row"><button class="btn alt" onclick="pick();render()">Skip</button><button class="btn" id="go" onclick="check()">Check</button></div>`;
+    Q?quizCard(el):quizSettings(el);
   }
 }
 function add(){
@@ -68,19 +166,8 @@ function add(){
   if(!id){er.textContent="That link isn't a YouTube video. Paste a Shorts link.";return}
   signs.unshift({w,id});save();render();
 }
-function del(i){signs.splice(i,1);save();render()}
-function pick(){let n;do{n=signs[Math.floor(Math.random()*signs.length)]}while(signs.length>1&&cur&&n===cur);cur=n;answered=false}
-const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,"");
-function check(){
-  const m=document.getElementById("m");
-  if(answered){pick();render();return}
-  const a=document.getElementById("a").value;if(!a.trim())return;
-  score.t++;answered=true;
-  if(norm(a)===norm(cur.w)){score.r++;m.style.color="var(--ok)";m.textContent="Correct!"}
-  else{m.style.color="var(--bad)";m.textContent="It was: "+cur.w}
-  document.getElementById("go").textContent="Next";
-}
-document.getElementById("nav").onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;cur=null;render()}};
+function del(i){if(!confirm(`Delete “${signs[i].w}”?`))return;signs.splice(i,1);save();render()}
+document.getElementById("nav").onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;render()}};
 render();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
